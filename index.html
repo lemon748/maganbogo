@@ -1,0 +1,362 @@
+<style>
+  :root{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#17202e; --muted:#5c6b7a;
+    --line:#e2e7ec; --accent:#2f6f8f; --accent-ink:#245a74;
+    --ok:#1f9d57; --ok-bg:#e6f6ec; --bad:#d1495b; --bad-bg:#fbe9ec;
+    --field:#fbfcfd; --shadow:0 1px 2px rgba(23,32,46,.06),0 8px 24px rgba(23,32,46,.06);
+    --radius:16px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0f141b; --card:#161d27; --ink:#e8edf3; --muted:#95a3b3;
+      --line:#28313d; --accent:#5aa9c9; --accent-ink:#79bcd8;
+      --ok:#48c785; --ok-bg:#16301f; --bad:#f0788a; --bad-bg:#341920;
+      --field:#111823; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#17202e; --muted:#5c6b7a;
+    --line:#e2e7ec; --accent:#2f6f8f; --accent-ink:#245a74;
+    --ok:#1f9d57; --ok-bg:#e6f6ec; --bad:#d1495b; --bad-bg:#fbe9ec;
+    --field:#fbfcfd; --shadow:0 1px 2px rgba(23,32,46,.06),0 8px 24px rgba(23,32,46,.06);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0f141b; --card:#161d27; --ink:#e8edf3; --muted:#95a3b3;
+    --line:#28313d; --accent:#5aa9c9; --accent-ink:#79bcd8;
+    --ok:#48c785; --ok-bg:#16301f; --bad:#f0788a; --bad-bg:#341920;
+    --field:#111823; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.55;
+    padding:0 0 132px;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:20px 16px 0;}
+
+  header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px;}
+  h1{font-size:1.32rem; font-weight:700; letter-spacing:-.02em; margin:0;}
+  .today{font-size:.95rem; color:var(--muted); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap;}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px 16px; margin-bottom:16px;
+  }
+  .card > .sect-label{margin-top:0;}
+  .sect-label{
+    display:block; font-size:.72rem; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--accent); margin:22px 0 12px;
+  }
+
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  label.flabel{display:block; font-size:.9rem; font-weight:600; margin-bottom:7px;}
+  .hint{color:var(--muted); font-weight:500; font-size:.82rem;}
+
+  .money{position:relative;}
+  .money input{padding-right:34px;}
+  .money::after{content:"원"; position:absolute; right:14px; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:.9rem; pointer-events:none;}
+
+  input[type="text"], input[type="number"], textarea{
+    width:100%; border:1px solid var(--line); background:var(--field); color:var(--ink);
+    border-radius:11px; padding:12px 14px; font-size:1.05rem; font-family:inherit;
+    font-variant-numeric:tabular-nums; outline:none; transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus, textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);}
+  textarea{min-height:112px; resize:vertical; line-height:1.6; font-size:1rem;}
+  .num-r{text-align:right;}
+
+  .stepper{display:flex; align-items:center; gap:10px;}
+  .stepper button{
+    width:44px; height:44px; flex:0 0 auto; border:1px solid var(--line); background:var(--field);
+    color:var(--ink); border-radius:11px; font-size:1.4rem; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; -webkit-user-select:none; user-select:none;
+  }
+  .stepper button:active{background:var(--line);}
+  .stepper input{text-align:center;}
+
+  .match{
+    display:flex; align-items:center; gap:9px; margin-top:2px;
+    padding:11px 14px; border-radius:11px; font-weight:700; font-size:.95rem;
+  }
+  .match.ok{background:var(--ok-bg); color:var(--ok);}
+  .match.bad{background:var(--bad-bg); color:var(--bad);}
+
+  /* preview */
+  .preview-card{background:var(--card);}
+  .preview{
+    white-space:pre-wrap; word-break:break-word; font-size:.98rem; line-height:1.62;
+    background:var(--field); border:1px dashed var(--line); border-radius:12px; padding:14px;
+    font-variant-numeric:tabular-nums;
+  }
+  .copytext{
+    margin-top:12px; width:100%; border:1px solid var(--line); background:var(--field); color:var(--ink);
+    border-radius:11px; padding:12px; font-weight:600; font-size:.95rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .copytext:active{background:var(--line);}
+
+  /* photos */
+  .photo-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:4px;}
+  .thumb{position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:var(--field); border:1px solid var(--line);}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .thumb .rm{
+    position:absolute; top:3px; right:3px; width:22px; height:22px; border:none; border-radius:50%;
+    background:rgba(15,20,27,.72); color:#fff; font-size:.8rem; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .add-photo{
+    aspect-ratio:1; border:1.5px dashed var(--line); border-radius:10px; background:var(--field);
+    color:var(--accent); cursor:pointer; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:3px; font-size:.72rem; font-weight:700;
+  }
+  .add-photo .plus{font-size:1.5rem; line-height:1;}
+  .photo-count{font-size:.82rem; color:var(--muted); font-weight:600; margin-top:10px;}
+  input[type="file"]{display:none;}
+
+  /* bottom bar */
+  .bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:10;
+    background:color-mix(in srgb,var(--paper) 88%,transparent); backdrop-filter:blur(12px);
+    border-top:1px solid var(--line); padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .bar-inner{max-width:560px; margin:0 auto; display:flex; gap:10px;}
+  .btn{
+    border:none; border-radius:13px; font-family:inherit; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; padding:15px 16px; font-size:1.02rem;
+  }
+  .btn-primary{flex:1; background:var(--accent); color:#fff;}
+  .btn-primary:active{background:var(--accent-ink);}
+  .btn-ghost{flex:0 0 auto; background:transparent; color:var(--accent); border:1.5px solid var(--line); padding:15px 18px;}
+  .btn-ghost:active{background:var(--field);}
+
+  .toast{
+    position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(12px);
+    background:var(--ink); color:var(--paper); padding:11px 18px; border-radius:999px;
+    font-size:.9rem; font-weight:600; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .22s,transform .22s; max-width:88vw; text-align:center; z-index:20;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>정자점 마감 보고</h1>
+    <span class="today" id="today">날짜</span>
+  </header>
+
+  <div class="card">
+    <span class="sect-label">정산</span>
+
+    <div class="field money">
+      <label class="flabel" for="sales">성남사랑 매출액</label>
+      <input type="text" id="sales" inputmode="numeric" class="num-r" placeholder="0" autocomplete="off">
+    </div>
+
+    <div class="field money">
+      <label class="flabel" for="transfer">계좌이체 매출액 <span class="hint">(0원이면 메시지에서 자동 숨김)</span></label>
+      <input type="text" id="transfer" inputmode="numeric" class="num-r" placeholder="0" autocomplete="off">
+    </div>
+
+    <div class="field money">
+      <label class="flabel" for="cash">현금 과부족 <span class="hint">(자동: 매출 합계의 마이너스 · 수정 가능)</span></label>
+      <input type="text" id="cash" inputmode="numeric" class="num-r" placeholder="0" autocomplete="off">
+    </div>
+
+    <div class="match ok" id="match"><span id="matchIcon">✅</span><span id="matchText">금액 일치</span></div>
+  </div>
+
+  <div class="card">
+    <span class="sect-label">손님</span>
+    <div class="field">
+      <label class="flabel" for="guests">오늘 두쫀젤 찾은 손님</label>
+      <div class="stepper">
+        <button type="button" id="minus" aria-label="빼기">−</button>
+        <input type="text" id="guests" inputmode="numeric" value="0">
+        <button type="button" id="plus" aria-label="더하기">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="sect-label">비고 (직접 입력)</span>
+    <div class="field">
+      <textarea id="notes" placeholder="예) 오늘 배송 딸기 냉장보관 완료했습니다&#10;에어컨 필터 청소 완료했습니다"></textarea>
+    </div>
+  </div>
+
+  <div class="card preview-card">
+    <span class="sect-label">보낼 메시지 미리보기</span>
+    <div class="preview" id="preview"></div>
+    <button type="button" class="copytext" id="copyBtn">📋 텍스트만 복사</button>
+  </div>
+
+  <div class="card">
+    <span class="sect-label">사진 첨부</span>
+    <div class="photo-grid" id="grid">
+      <button type="button" class="add-photo" id="addPhoto">
+        <span class="plus">+</span><span>사진 추가</span>
+      </button>
+    </div>
+    <div class="photo-count" id="count">사진 0장</div>
+    <input type="file" id="file" accept="image/*" multiple>
+  </div>
+</div>
+
+<div class="bar">
+  <div class="bar-inner">
+    <button type="button" class="btn btn-primary" id="shareBtn">📤 카톡으로 한번에 보내기</button>
+    <button type="button" class="btn btn-ghost" id="copyBtn2">복사</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const WEEK = ["일","월","화","수","목","금","토"];
+  const $ = id => document.getElementById(id);
+  const sales=$('sales'), transfer=$('transfer'), cash=$('cash'), guests=$('guests'), notes=$('notes');
+  const preview=$('preview'), toastEl=$('toast');
+  let photos = []; // {file, url}
+
+  // ---- date ----
+  function todayStr(){
+    const d = new Date();
+    return `${d.getMonth()+1}월${d.getDate()}일 ${WEEK[d.getDay()]}요일`;
+  }
+  $('today').textContent = todayStr();
+
+  // ---- number helpers ----
+  const digits = s => (s||'').replace(/[^0-9]/g,'');
+  const parseNum = s => { const n=parseInt((s||'').replace(/[^0-9-]/g,''),10); return isNaN(n)?0:n; };
+  const fmt = n => n.toLocaleString('ko-KR');
+
+  // 매출 합계로 현금 과부족 자동 채우기
+  function syncCash(){
+    const total = parseNum(sales.value) + parseNum(transfer.value);
+    cash.value = total ? fmt(-total) : '';
+  }
+  // 성남사랑 / 계좌이체: 숫자만, 콤마, 입력 시 현금 과부족 자동 갱신
+  function moneyInput(el){
+    return ()=>{
+      const raw = digits(el.value);
+      el.value = raw ? fmt(parseInt(raw,10)) : '';
+      syncCash();
+      render();
+    };
+  }
+  sales.addEventListener('input', moneyInput(sales));
+  transfer.addEventListener('input', moneyInput(transfer));
+
+  // 현금 과부족: allow minus + digits
+  cash.addEventListener('input', ()=>{
+    let s = cash.value.replace(/[^0-9-]/g,'');
+    const neg = s.trim().startsWith('-');
+    const d = s.replace(/-/g,'');
+    cash.value = d ? (neg?'-':'') + fmt(parseInt(d,10)) : (neg?'-':'');
+    render();
+  });
+
+  // ---- guests stepper ----
+  function setGuests(n){ n=Math.max(0,n); guests.value=n; render(); }
+  guests.addEventListener('input', ()=>{ guests.value = digits(guests.value); render(); });
+  guests.addEventListener('blur', ()=>{ if(guests.value==='') setGuests(0); });
+  $('plus').addEventListener('click', ()=> setGuests(parseNum(guests.value)+1));
+  $('minus').addEventListener('click', ()=> setGuests(parseNum(guests.value)-1));
+  notes.addEventListener('input', render);
+
+  // ---- match state ----
+  function updateMatch(){
+    const s=parseNum(sales.value), t=parseNum(transfer.value), c=parseNum(cash.value);
+    const ok = (s+t+c)===0;
+    const m=$('match');
+    m.className = 'match ' + (ok?'ok':'bad');
+    $('matchIcon').textContent = ok?'✅':'❌';
+    $('matchText').textContent = ok?'금액 일치':'금액 불일치';
+    return ok;
+  }
+
+  // ---- build text ----
+  function buildText(){
+    const ok = updateMatch();
+    const s = parseNum(sales.value), tr = parseNum(transfer.value), c = parseNum(cash.value);
+    const g = parseNum(guests.value);
+    const note = notes.value.trim();
+    let sales_block = `성남사랑 매출액: ${fmt(s)}원`;
+    if(tr !== 0) sales_block += `\n계좌이체 매출액: ${fmt(tr)}원`;
+    let out =
+`${todayStr()}
+정자점 마감 완료했습니다.
+
+${sales_block}
+
+[현금 과부족: ${fmt(c)}원]
+<금액 일치:${ok?'✅':'❌'}>
+
+오늘 두쫀젤 찾은 손님: ${g}`;
+    if(note) out += `\n\n${note}`;
+    return out;
+  }
+  function render(){ preview.textContent = buildText(); }
+
+  // ---- photos ----
+  const grid=$('grid'), fileInput=$('file'), addBtn=$('addPhoto');
+  addBtn.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', e=>{
+    for(const f of e.target.files){ if(f.type.startsWith('image/')) photos.push({file:f, url:URL.createObjectURL(f)}); }
+    fileInput.value='';
+    renderPhotos();
+  });
+  function renderPhotos(){
+    grid.querySelectorAll('.thumb').forEach(t=>t.remove());
+    photos.forEach((p,i)=>{
+      const d=document.createElement('div'); d.className='thumb';
+      d.innerHTML=`<img src="${p.url}" alt="사진 ${i+1}"><button class="rm" aria-label="삭제">✕</button>`;
+      d.querySelector('.rm').addEventListener('click', ()=>{ URL.revokeObjectURL(p.url); photos.splice(i,1); renderPhotos(); });
+      grid.insertBefore(d, addBtn);
+    });
+    $('count').textContent = `사진 ${photos.length}장`;
+  }
+
+  // ---- toast ----
+  let toastT;
+  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove('show'),2600); }
+
+  // ---- copy ----
+  async function copyText(){
+    const t=buildText();
+    try{ await navigator.clipboard.writeText(t); return true; }
+    catch(e){
+      const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      let ok=false; try{ ok=document.execCommand('copy'); }catch(_){}
+      document.body.removeChild(ta); return ok;
+    }
+  }
+  async function doCopy(){ toast(await copyText()? '텍스트를 복사했어요' : '복사에 실패했어요'); }
+  $('copyBtn').addEventListener('click', doCopy);
+  $('copyBtn2').addEventListener('click', doCopy);
+
+  // ---- share ----
+  $('shareBtn').addEventListener('click', async ()=>{
+    const text = buildText();
+    const files = photos.map(p=>p.file);
+    if(files.length && navigator.canShare && navigator.canShare({files})){
+      try{ await navigator.share({ text, files }); return; }
+      catch(e){ if(e && e.name==='AbortError') return; }
+    } else if(navigator.share){
+      try{ await navigator.share({ text }); toast('사진은 카톡에서 직접 첨부해 주세요'); return; }
+      catch(e){ if(e && e.name==='AbortError') return; }
+    }
+    const ok = await copyText();
+    toast(ok ? '이 화면에선 공유가 막혀 텍스트만 복사했어요 · 사진은 직접 첨부' : '공유·복사가 안 돼요');
+  });
+
+  render(); renderPhotos();
+})();
+</script>
