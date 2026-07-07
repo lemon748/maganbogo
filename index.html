@@ -444,8 +444,8 @@ ${sales_block}
   function closeEditor(){ editor.hidden=true; document.body.style.overflow=''; work=null; drag=null; }
 
   function computeDisp(){
-    const sw=edStage.clientWidth, sh=edStage.clientHeight;
-    const scale=Math.min(sw/work.width, sh/work.height);
+    const sw=edStage.clientWidth, sh=edStage.clientHeight, PAD=16; // 손잡이 여백
+    const scale=Math.min((sw-2*PAD)/work.width, (sh-2*PAD)/work.height);
     const dw=work.width*scale, dh=work.height*scale;
     dispRect={x:(sw-dw)/2, y:(sh-dh)/2, w:dw, h:dh, scale};
     const dpr=window.devicePixelRatio||1;
