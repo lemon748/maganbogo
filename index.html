@@ -149,6 +149,34 @@
   .btn-ghost{flex:0 0 auto; background:transparent; color:var(--accent); border:1.5px solid var(--line); padding:15px 18px;}
   .btn-ghost:active{background:var(--field);}
 
+  /* 사진 편집기 */
+  .thumb img{cursor:pointer;}
+  .edit-badge{position:absolute; left:3px; bottom:3px; min-width:20px; height:20px; padding:0 5px;
+    border-radius:6px; background:rgba(15,20,27,.72); color:#fff; font-size:.68rem; font-weight:700;
+    display:flex; align-items:center; justify-content:center; gap:2px; pointer-events:none;}
+  .editor{position:fixed; inset:0; z-index:50; background:#0d1117; display:flex; flex-direction:column;}
+  .editor[hidden]{display:none;}
+  .ed-top{display:flex; align-items:center; justify-content:space-between;
+    padding:calc(12px + env(safe-area-inset-top)) 18px 12px;}
+  .ed-top button{background:none; border:none; font-family:inherit; font-size:1rem; font-weight:700;
+    color:#e8edf3; cursor:pointer; padding:6px 2px;}
+  .ed-top .save{color:#5aa9c9;}
+  .ed-title{font-size:.95rem; font-weight:700; color:#e8edf3;}
+  .ed-stage{position:relative; flex:1; overflow:hidden; touch-action:none; margin:4px 10px;}
+  #edCanvas{position:absolute; inset:0;}
+  .crop{position:absolute; box-sizing:border-box; border:1.5px solid #fff;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.55); cursor:move; touch-action:none;}
+  .handle{position:absolute; width:28px; height:28px; touch-action:none;
+    display:flex; align-items:center; justify-content:center;}
+  .handle::after{content:""; width:15px; height:15px; background:#fff; border-radius:3px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.3);}
+  .ed-tools{display:flex; gap:8px; padding:12px 12px calc(14px + env(safe-area-inset-bottom));}
+  .ed-tools button{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:#1b222c; color:#e8edf3; border:1px solid #2a333f; border-radius:12px; padding:10px 4px;
+    font-family:inherit; font-size:.76rem; font-weight:700; cursor:pointer;}
+  .ed-tools button:active{background:#252e3a;}
+  .ed-tools .ic{font-size:1.25rem; line-height:1;}
+
   .toast{
     position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(12px);
     background:var(--ink); color:var(--paper); padding:11px 18px; border-radius:999px;
@@ -229,6 +257,24 @@
   <div class="bar-inner">
     <button type="button" class="btn btn-primary" id="shareBtn">📤 카톡으로 한번에 보내기</button>
     <button type="button" class="btn btn-ghost" id="copyBtn2">복사</button>
+  </div>
+</div>
+
+<div class="editor" id="editor" hidden>
+  <div class="ed-top">
+    <button type="button" id="edCancel">취소</button>
+    <span class="ed-title">사진 편집</span>
+    <button type="button" class="save" id="edSave">저장</button>
+  </div>
+  <div class="ed-stage" id="edStage">
+    <canvas id="edCanvas"></canvas>
+    <div class="crop" id="crop"></div>
+  </div>
+  <div class="ed-tools">
+    <button type="button" id="edRotL"><span class="ic">↺</span>왼쪽 회전</button>
+    <button type="button" id="edRotR"><span class="ic">↻</span>오른쪽 회전</button>
+    <button type="button" id="edFlip"><span class="ic">⇋</span>좌우반전</button>
+    <button type="button" id="edReset"><span class="ic">⤢</span>전체</button>
   </div>
 </div>
 
@@ -334,8 +380,9 @@ ${sales_block}
     grid.querySelectorAll('.thumb').forEach(t=>t.remove());
     photos.forEach((p,i)=>{
       const d=document.createElement('div'); d.className='thumb';
-      d.innerHTML=`<img src="${p.url}" alt="사진 ${i+1}"><button class="rm" aria-label="삭제">✕</button>`;
-      d.querySelector('.rm').addEventListener('click', ()=>{ URL.revokeObjectURL(p.url); photos.splice(i,1); renderPhotos(); });
+      d.innerHTML=`<img src="${p.url}" alt="사진 ${i+1}"><span class="edit-badge">✎ 편집</span><button class="rm" aria-label="삭제">✕</button>`;
+      d.querySelector('img').addEventListener('click', ()=> openEditor(i));
+      d.querySelector('.rm').addEventListener('click', ev=>{ ev.stopPropagation(); URL.revokeObjectURL(p.url); photos.splice(i,1); renderPhotos(); });
       grid.insertBefore(d, addBtn);
     });
     $('count').textContent = `사진 ${photos.length}장`;
@@ -374,6 +421,111 @@ ${sales_block}
     const ok = await copyText();
     toast(ok ? '이 화면에선 공유가 막혀 텍스트만 복사했어요 · 사진은 직접 첨부' : '공유·복사가 안 돼요');
   });
+
+  // ===== 사진 편집기 (자르기 / 회전 / 좌우반전) =====
+  const editor=$('editor'), edStage=$('edStage'), edCanvas=$('edCanvas'), cropEl=$('crop');
+  const handles={};
+  ['nw','ne','sw','se'].forEach(c=>{ const h=document.createElement('div'); h.className='handle'; h.dataset.corner=c; cropEl.appendChild(h); handles[c]=h; });
+  let edIndex=-1, work=null, dispRect=null, crop=null, drag=null;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function loadImg(url){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=url; }); }
+
+  async function openEditor(i){
+    edIndex=i;
+    const im=await loadImg(photos[i].url);
+    let nw=im.naturalWidth||im.width, nh=im.naturalHeight||im.height;
+    const MAX=3000, s=Math.min(1, MAX/Math.max(nw,nh)); // 대용량 사진 안전하게 축소
+    const c=document.createElement('canvas'); c.width=Math.round(nw*s); c.height=Math.round(nh*s);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height); work=c;
+    editor.hidden=false; document.body.style.overflow='hidden';
+    requestAnimationFrame(()=>{ computeDisp(); resetCrop(); });
+  }
+  function closeEditor(){ editor.hidden=true; document.body.style.overflow=''; work=null; drag=null; }
+
+  function computeDisp(){
+    const sw=edStage.clientWidth, sh=edStage.clientHeight;
+    const scale=Math.min(sw/work.width, sh/work.height);
+    const dw=work.width*scale, dh=work.height*scale;
+    dispRect={x:(sw-dw)/2, y:(sh-dh)/2, w:dw, h:dh, scale};
+    const dpr=window.devicePixelRatio||1;
+    edCanvas.width=Math.round(sw*dpr); edCanvas.height=Math.round(sh*dpr);
+    edCanvas.style.width=sw+'px'; edCanvas.style.height=sh+'px';
+    const ctx=edCanvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,sw,sh); ctx.imageSmoothingQuality='high';
+    ctx.drawImage(work, dispRect.x,dispRect.y,dispRect.w,dispRect.h);
+  }
+  function resetCrop(){ crop={x:dispRect.x,y:dispRect.y,w:dispRect.w,h:dispRect.h}; setCropDOM(); }
+  function setCropDOM(){
+    cropEl.style.left=crop.x+'px'; cropEl.style.top=crop.y+'px';
+    cropEl.style.width=crop.w+'px'; cropEl.style.height=crop.h+'px';
+    const o=-14;
+    handles.nw.style.left=o+'px';           handles.nw.style.top=o+'px';
+    handles.ne.style.left=(crop.w+o)+'px';  handles.ne.style.top=o+'px';
+    handles.sw.style.left=o+'px';           handles.sw.style.top=(crop.h+o)+'px';
+    handles.se.style.left=(crop.w+o)+'px';  handles.se.style.top=(crop.h+o)+'px';
+  }
+  function pt(e){ const r=edStage.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+  edStage.addEventListener('pointerdown', e=>{
+    if(editor.hidden) return;
+    const t=e.target, p=pt(e);
+    if(t.classList && t.classList.contains('handle')) drag={mode:'resize', corner:t.dataset.corner};
+    else if(t===cropEl) drag={mode:'move', ox:p.x-crop.x, oy:p.y-crop.y};
+    else return;
+    edStage.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  edStage.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    const p=pt(e), B=dispRect, minS=44;
+    if(drag.mode==='move'){
+      crop.x=clamp(p.x-drag.ox, B.x, B.x+B.w-crop.w);
+      crop.y=clamp(p.y-drag.oy, B.y, B.y+B.h-crop.h);
+    } else {
+      let left=crop.x, top=crop.y, right=crop.x+crop.w, bottom=crop.y+crop.h, c=drag.corner;
+      if(c.indexOf('w')>=0) left=clamp(p.x, B.x, right-minS);
+      if(c.indexOf('e')>=0) right=clamp(p.x, left+minS, B.x+B.w);
+      if(c.indexOf('n')>=0) top=clamp(p.y, B.y, bottom-minS);
+      if(c.indexOf('s')>=0) bottom=clamp(p.y, top+minS, B.y+B.h);
+      crop={x:left,y:top,w:right-left,h:bottom-top};
+    }
+    setCropDOM(); e.preventDefault();
+  });
+  const endDrag=()=>{ drag=null; };
+  edStage.addEventListener('pointerup', endDrag);
+  edStage.addEventListener('pointercancel', endDrag);
+
+  function rotate(dir){
+    const c=document.createElement('canvas'); c.width=work.height; c.height=work.width;
+    const ctx=c.getContext('2d');
+    if(dir>0){ ctx.translate(c.width,0); ctx.rotate(Math.PI/2); }
+    else { ctx.translate(0,c.height); ctx.rotate(-Math.PI/2); }
+    ctx.drawImage(work,0,0); work=c; computeDisp(); resetCrop();
+  }
+  function flip(){
+    const c=document.createElement('canvas'); c.width=work.width; c.height=work.height;
+    const ctx=c.getContext('2d'); ctx.translate(c.width,0); ctx.scale(-1,1); ctx.drawImage(work,0,0);
+    work=c; computeDisp(); resetCrop();
+  }
+  $('edRotL').addEventListener('click', ()=>rotate(-1));
+  $('edRotR').addEventListener('click', ()=>rotate(1));
+  $('edFlip').addEventListener('click', flip);
+  $('edReset').addEventListener('click', resetCrop);
+  $('edCancel').addEventListener('click', closeEditor);
+  $('edSave').addEventListener('click', ()=>{
+    const sx=(crop.x-dispRect.x)/dispRect.scale, sy=(crop.y-dispRect.y)/dispRect.scale;
+    const sw2=crop.w/dispRect.scale, sh2=crop.h/dispRect.scale;
+    const out=document.createElement('canvas');
+    out.width=Math.max(1,Math.round(sw2)); out.height=Math.max(1,Math.round(sh2));
+    out.getContext('2d').drawImage(work, sx,sy,sw2,sh2, 0,0,out.width,out.height);
+    out.toBlob(b=>{
+      if(!b){ closeEditor(); return; }
+      const old=photos[edIndex]; URL.revokeObjectURL(old.url);
+      const name=(((old.file&&old.file.name)||'photo').replace(/\.[^.]+$/,''))+'-edit.jpg';
+      photos[edIndex]={file:new File([b],name,{type:'image/jpeg'}), url:URL.createObjectURL(b)};
+      closeEditor(); renderPhotos();
+    }, 'image/jpeg', 0.92);
+  });
+  window.addEventListener('resize', ()=>{ if(!editor.hidden && work){ computeDisp(); resetCrop(); } });
 
   render(); renderPhotos();
 })();
