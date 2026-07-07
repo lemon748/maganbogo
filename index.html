@@ -43,6 +43,18 @@
     --field:#111823; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
   }
 
+  .ptr{
+    position:fixed; left:0; right:0; top:0; z-index:60;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    height:0; overflow:hidden; opacity:0;
+    color:var(--muted); font-size:14px; font-weight:600;
+    background:var(--paper); pointer-events:none;
+    padding-top:env(safe-area-inset-top);
+  }
+  .ptr-spin{display:inline-block; transition:transform .18s;}
+  .ptr.refreshing .ptr-spin{animation:ptrspin .7s linear infinite;}
+  @keyframes ptrspin{to{transform:rotate(360deg);}}
+
   *{box-sizing:border-box; touch-action:manipulation;}
   body{
     margin:0; background:var(--paper); color:var(--ink);
@@ -188,6 +200,8 @@
 </style>
 </head>
 <body>
+
+<div class="ptr" id="ptr"><span class="ptr-spin" id="ptrIcon">↓</span><span id="ptrText">당겨서 새로고침</span></div>
 
 <div class="wrap">
   <header>
@@ -371,10 +385,39 @@ ${sales_block}
   // ---- photos ----
   const grid=$('grid'), fileInput=$('file'), addBtn=$('addPhoto');
   addBtn.addEventListener('click', ()=> fileInput.click());
-  fileInput.addEventListener('change', e=>{
-    for(const f of e.target.files){ if(f.type.startsWith('image/')) photos.push({file:f, url:URL.createObjectURL(f)}); }
+  // 화질 저하 없이 용량만 확 줄이기: 긴 변 2200px까지만 리샘플 + JPEG 재인코딩
+  // (영수증 작은 글씨도 확대해 읽을 수 있게 해상도는 넉넉히 남김)
+  async function compressImage(file){
+    if(!file || !file.type || !file.type.startsWith('image/')) return file;
+    const MAX=2200, Q=0.72;
+    let img;
+    try{
+      const url=URL.createObjectURL(file);
+      try{ img=await loadImg(url); } finally{ URL.revokeObjectURL(url); }
+    }catch(e){ return file; }              // HEIC 등 미리보기 실패 시 원본 유지
+    const w=img.naturalWidth, h=img.naturalHeight;
+    if(!w || !h) return file;
+    const scale=Math.min(1, MAX/Math.max(w,h));
+    const cw=Math.round(w*scale), ch=Math.round(h*scale);
+    const c=document.createElement('canvas'); c.width=cw; c.height=ch;
+    const ctx=c.getContext('2d');
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(img, 0, 0, cw, ch);
+    const blob=await new Promise(res=> c.toBlob(res, 'image/jpeg', Q));
+    if(!blob || blob.size>=file.size) return file;   // 압축 이득 없으면 원본
+    const name=((file.name||'photo').replace(/\.[^.]+$/,''))+'.jpg';
+    return new File([blob], name, {type:'image/jpeg', lastModified:file.lastModified||Date.now()});
+  }
+  fileInput.addEventListener('change', async e=>{
+    const list=[...e.target.files].filter(f=>f.type.startsWith('image/'));
     fileInput.value='';
-    renderPhotos();
+    if(!list.length) return;
+    if(list.length>2) toast('사진 최적화 중…');
+    for(const f of list){
+      const cf=await compressImage(f);
+      photos.push({file:cf, url:URL.createObjectURL(cf)});
+      renderPhotos();
+    }
   });
   function renderPhotos(){
     grid.querySelectorAll('.thumb').forEach(t=>t.remove());
@@ -534,9 +577,40 @@ ${sales_block}
       const name=(((old.file&&old.file.name)||'photo').replace(/\.[^.]+$/,''))+'-edit.jpg';
       photos[edIndex]={file:new File([b],name,{type:'image/jpeg'}), url:URL.createObjectURL(b)};
       closeEditor(); renderPhotos();
-    }, 'image/jpeg', 0.92);
+    }, 'image/jpeg', 0.85);
   });
   window.addEventListener('resize', ()=>{ if(!editor.hidden && work){ computeDisp(); resetCrop(); } });
+
+  // ---- 당겨서 새로고침 ----
+  (function(){
+    const ptr=$('ptr'), icon=$('ptrIcon'), txt=$('ptrText');
+    const TH=70, LIMIT=110;
+    let startY=0, pulling=false;
+    const atTop=()=> (window.scrollY||document.documentElement.scrollTop||0)<=0;
+    function reset(){ ptr.style.height='0'; ptr.style.opacity='0'; }
+    window.addEventListener('touchstart', e=>{
+      if(e.touches.length!==1 || !atTop() || !editor.hidden){ pulling=false; return; }
+      startY=e.touches[0].clientY; pulling=true;
+    }, {passive:true});
+    window.addEventListener('touchmove', e=>{
+      if(!pulling) return;
+      const dist=e.touches[0].clientY-startY;
+      if(dist<=0 || !atTop()){ pulling=false; reset(); return; }
+      const d=Math.min(dist*0.5, LIMIT);
+      ptr.style.height=d+'px'; ptr.style.opacity=Math.min(1, d/TH);
+      icon.style.transform = d>=TH ? 'rotate(180deg)' : 'rotate(0deg)';
+      txt.textContent = d>=TH ? '놓으면 새로고침' : '당겨서 새로고침';
+    }, {passive:true});
+    window.addEventListener('touchend', ()=>{
+      if(!pulling) return; pulling=false;
+      if((parseFloat(ptr.style.height)||0) >= TH){
+        ptr.classList.add('refreshing');
+        icon.textContent='↻'; icon.style.transform=''; txt.textContent='새로고침 중…';
+        ptr.style.height='54px'; ptr.style.opacity='1';
+        setTimeout(()=> location.reload(), 300);
+      } else { reset(); }
+    }, {passive:true});
+  })();
 
   render(); renderPhotos();
 })();
