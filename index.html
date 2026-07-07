@@ -1,4 +1,17 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="정자점 마감">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f141b" media="(prefers-color-scheme: dark)">
+<title>정자점 마감 보고</title>
 <style>
+  html{-webkit-text-size-adjust:100%;}
   :root{
     --paper:#f6f7f9; --card:#ffffff; --ink:#17202e; --muted:#5c6b7a;
     --line:#e2e7ec; --accent:#2f6f8f; --accent-ink:#245a74;
@@ -142,6 +155,8 @@
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header>
@@ -360,3 +375,5 @@ ${sales_block}
   render(); renderPhotos();
 })();
 </script>
+</body>
+</html>
