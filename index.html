@@ -408,9 +408,20 @@ ${sales_block}
   $('copyBtn2').addEventListener('click', doCopy);
 
   // ---- share ----
+  // 원본 파일명이 제각각이면 카톡이 이름순으로 재정렬해 순서가 뒤섞임 → 추가한 순서대로 번호를 붙여 넘김
+  function orderedFiles(){
+    const pad = String(photos.length).length;
+    return photos.map((p,i)=>{
+      const f = p.file;
+      const ext = (f.name.match(/\.[a-z0-9]+$/i)||[ (f.type.split('/')[1]?'.'+f.type.split('/')[1]:'.jpg') ])[0];
+      const name = String(i+1).padStart(pad,'0') + ext;
+      try{ return new File([f], name, { type:f.type, lastModified:Date.now()+i }); }
+      catch(e){ return f; }
+    });
+  }
   $('shareBtn').addEventListener('click', async ()=>{
     const text = buildText();
-    const files = photos.map(p=>p.file);
+    const files = orderedFiles();
     if(files.length && navigator.canShare && navigator.canShare({files})){
       try{ await navigator.share({ text, files }); return; }
       catch(e){ if(e && e.name==='AbortError') return; }
